@@ -1,0 +1,95 @@
+﻿[
+  {
+    "Type": "R2V",
+    "References": [
+      { "Designation": "1x1.5 mm²", "DiameterMm": 5.4 },
+      { "Designation": "1x2.5 mm²", "DiameterMm": 5.8 },
+      { "Designation": "1x10 mm²", "DiameterMm": 8.1 },
+      { "Designation": "1x16 mm²", "DiameterMm": 9.1 },
+      { "Designation": "1x25 mm²", "DiameterMm": 10.8 },
+      { "Designation": "1x120 mm²", "DiameterMm": 18.2 },
+      { "Designation": "1x150 mm²", "DiameterMm": 19.9 },
+      { "Designation": "1x185 mm²", "DiameterMm": 22.2 },
+      { "Designation": "1x240 mm²", "DiameterMm": 25 },
+      { "Designation": "3G2.5 mm²", "DiameterMm": 13 },
+      { "Designation": "3G4 mm²", "DiameterMm": 13.5 },
+      { "Designation": "3G6 mm²", "DiameterMm": 15 },
+      { "Designation": "3G10 mm²", "DiameterMm": 17 },
+      { "Designation": "3G16 mm²", "DiameterMm": 19 },
+      { "Designation": "3G25 mm²", "DiameterMm": 23 },
+      { "Designation": "4G1.5 mm²", "DiameterMm": 12 },
+      { "Designation": "4G2.5 mm²", "DiameterMm": 13 },
+      { "Designation": "4G4 mm²", "DiameterMm": 14.5 },
+      { "Designation": "4G6 mm²", "DiameterMm": 16 },
+      { "Designation": "4G10 mm²", "DiameterMm": 18.5 },
+      { "Designation": "4G16 mm²", "DiameterMm": 21 },
+      { "Designation": "4G25 mm²", "DiameterMm": 24 }
+    ]
+  },
+  {
+    "Type": "H07RNF",
+    "References": [
+      { "Designation": "1x1.5 mm²", "DiameterMm": 5.9 },
+      { "Designation": "1x2.5 mm²", "DiameterMm": 6.6 },
+      { "Designation": "1x10 mm²", "DiameterMm": 10 },
+      { "Designation": "1x16 mm²", "DiameterMm": 11.1 },
+      { "Designation": "1x25 mm²", "DiameterMm": 13.5 },
+      { "Designation": "1x120 mm²", "DiameterMm": 23.4 },
+      { "Designation": "1x150 mm²", "DiameterMm": 25.7 },
+      { "Designation": "1x185 mm²", "DiameterMm": 28.1 },
+      { "Designation": "1x240 mm²", "DiameterMm": 31.2 },
+      { "Designation": "3G2.5 mm²", "DiameterMm": 12.5 },
+      { "Designation": "3G4 mm²", "DiameterMm": 14 },
+      { "Designation": "3G6 mm²", "DiameterMm": 15.5 },
+      { "Designation": "3G10 mm²", "DiameterMm": 18.5 },
+      { "Designation": "3G16 mm²", "DiameterMm": 22 },
+      { "Designation": "3G25 mm²", "DiameterMm": 26 }
+    ]
+  },
+  {
+    "Type": "AR2V",
+    "References": [
+      { "Designation": "1x16 mm²", "DiameterMm": 16 },
+      { "Designation": "2x16 mm²", "DiameterMm": 19 },
+      { "Designation": "3G25 mm²", "DiameterMm": 20.5 },
+      { "Designation": "4G25 mm²", "DiameterMm": 23 },
+      { "Designation": "5G25 mm²", "DiameterMm": 25 },
+      { "Designation": "3G35 mm²", "DiameterMm": 23 },
+      { "Designation": "4G35 mm²", "DiameterMm": 25 },
+      { "Designation": "5G35 mm²", "DiameterMm": 32.5 },
+      { "Designation": "3x50 mm²", "DiameterMm": 26 },
+      { "Designation": "4G50 mm²", "DiameterMm": 29 },
+      { "Designation": "5G50 mm²", "DiameterMm": 37 }
+    ]
+  },
+  {
+    "Type": "RVFV",
+    "References": [
+      { "Designation": "2x1.5 mm²", "DiameterMm": 7.7 },
+      { "Designation": "3x2.5 mm²", "DiameterMm": 9.3 },
+      { "Designation": "4x4 mm²", "DiameterMm": 11.5 },
+      { "Designation": "3x10 mm²", "DiameterMm": 13.5 },
+      { "Designation": "3x16 mm²", "DiameterMm": 15.5 },
+      { "Designation": "3x25 mm²", "DiameterMm": 18 },
+      { "Designation": "3x35 mm²", "DiameterMm": 20.5 },
+      { "Designation": "3x50 mm²", "DiameterMm": 23 },
+      { "Designation": "3x70 mm²", "DiameterMm": 26 }
+    ]
+  },
+  {
+    "Type": "Ethernet",
+    "References": [
+      { "Designation": "Cat 5e (F/UTP, U/UTP)", "DiameterMm": 6 },
+      { "Designation": "Cat 6 (F/UTP)", "DiameterMm": 7.1 },
+      { "Designation": "Cat 6a (S/FTP)", "DiameterMm": 8 }
+    ]
+  },
+  {
+    "Type": "Instrumentation",
+    "References": [
+      { "Designation": "2x1 mm² (blindé)", "DiameterMm": 8 },
+      { "Designation": "4x1 mm² (blindé)", "DiameterMm": 9.5 },
+      { "Designation": "8x1 mm² (blindé)", "DiameterMm": 12 }
+    ]
+  }
+]
