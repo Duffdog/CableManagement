@@ -77,7 +77,7 @@
     ]
   },
   {
-    "Type": "Ethernet",
+    "Type": "4P",
     "References": [
       { "Designation": "Cat 5e (F/UTP, U/UTP)", "DiameterMm": 6 },
       { "Designation": "Cat 6 (F/UTP)", "DiameterMm": 7.1 },
