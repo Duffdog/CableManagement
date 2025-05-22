@@ -3,7 +3,7 @@
 
 <h3>Dimensionnement de chemin de câble</h3>
 
-@if (CableTypes == null)
+@if (_cableTypes == null)
 {
     <p>Chargement des données...</p>
 }
@@ -13,14 +13,14 @@ else
     <EditForm Model="@this">
         <div class="card">
             <div class="card-body">
-                @foreach (var (cable, idx) in Cables.Select((c, i) => (c, i)))
+                @foreach (var (cable, idx) in _cables.Select((c, i) => (c, i)))
                 {
                     <div class="row mb-2 align-items-end" key="@idx">
                         <div class="col-md-3">
                             <label>Type</label>
                             <select class="form-select" @onchange="e => OnTypeChanged(e, idx)">
                                 <option disabled selected value>-- Type --</option>
-                                @foreach (var type in CableTypes)
+                                @foreach (var type in _cableTypes)
                                 {
                                     <option value="@type.Type" selected="@(cable.Type == type.Type)">
                                         @type.Type
@@ -32,7 +32,7 @@ else
                             <label>Référence</label>
                             <select class="form-select" @onchange="e => OnReferenceChanged(e, idx)" disabled="@string.IsNullOrEmpty(cable.Type)">
                                 <option disabled selected value>-- Référence --</option>
-                                @foreach (var reference in CableTypes.FirstOrDefault(t => t.Type == cable.Type)?.References ?? new List<CableReference>())
+                                @foreach (var reference in _cableTypes.FirstOrDefault(t => t.Type == cable.Type)?.References ?? new List<CableReference>())
                                 {
                                     <option value="@reference.Designation" selected="@(cable.Designation == reference.Designation)">
                                         @reference.Designation
@@ -49,7 +49,7 @@ else
                             <input type="number" class="form-control" min="1" @bind="cable.Quantity" />
                         </div>
                         <div class="col-md-1">
-                            <button class="btn btn-danger" @onclick="() => SupprimerCable(idx)" disabled="@(Cables.Count == 1)">
+                            <button class="btn btn-danger" @onclick="() => SupprimerCable(idx)" disabled="@(_cables.Count == 1)">
                                 <span aria-hidden="true">&times;</span>
                             </button>
                         </div>
@@ -61,16 +61,16 @@ else
 
     <button class="btn btn-primary mt-3" @onclick="CalculerEncombrement">Calculer encombrement</button>
 
-    @if (Occupancy > 0)
+    @if (_occupancy > 0)
     {
         <div class="mt-4">
             <h5>Résultats</h5>
-            <p>Encombrement total : <b>@Occupancy.ToString("0.00") cm²</b></p>
+            <p>Encombrement total : <b>@_occupancy.ToString("0.00") cm²</b></p>
             <h6>Disposition (vue en coupe)</h6>
             <svg width="800" height="120" style="border:1px solid #ccc; background:#f8f9fa">
                 @{
                     int posX = 20;
-                    foreach (var cable in Cables.Where(c => c.Quantity > 0 && c.DiameterMm > 0))
+                    foreach (var cable in _cables.Where(c => c.Quantity > 0 && c.DiameterMm > 0))
                     {
                         for (int i = 0; i < cable.Quantity; i++)
                         {
@@ -88,63 +88,63 @@ else
     // Modèles pour le JSON
     public class CableReference
     {
-        public string Designation { get; set; }
+        public string Designation { get; set; } = string.Empty;
         public double DiameterMm { get; set; }
     }
     public class CableType
     {
-        public string Type { get; set; }
-        public List<CableReference> References { get; set; }
+        public string Type { get; set; } = string.Empty;
+        public List<CableReference>? References { get; set; }
     }
     public class SelectedCable
     {
-        public string Type { get; set; }
-        public string Designation { get; set; }
+        public string Type { get; set; } = string.Empty;
+        public string Designation { get; set; } = string.Empty;
         public double DiameterMm { get; set; }
         public int Quantity { get; set; } = 1;
     }
 
-    private List<CableType> CableTypes;
-    private List<SelectedCable> Cables = new() { new SelectedCable() };
-    private double Occupancy = 0;
+    private List<CableType>? _cableTypes;
+    private List<SelectedCable> _cables = new() { new SelectedCable() };
+    private double _occupancy;
 
     protected override async Task OnInitializedAsync()
     {
-        CableTypes = await Http.GetFromJsonAsync<List<CableType>>("sample-data/Cable.json");
+        _cableTypes = await Http.GetFromJsonAsync<List<CableType>>("sample-data/Cable.json");
     }
 
     private void AjouterCable()
     {
-        Cables.Add(new SelectedCable());
+        _cables.Add(new SelectedCable());
     }
 
     private void SupprimerCable(int idx)
     {
-        if (Cables.Count > 1)
-            Cables.RemoveAt(idx);
+        if (_cables.Count > 1)
+            _cables.RemoveAt(idx);
     }
 
     private void OnTypeChanged(ChangeEventArgs e, int idx)
     {
         var type = e.Value?.ToString();
-        Cables[idx].Type = type;
-        Cables[idx].Designation = null;
-        Cables[idx].DiameterMm = 0;
+        _cables[idx].Type = type!;
+        _cables[idx].Designation = null!;
+        _cables[idx].DiameterMm = 0;
     }
 
     private void OnReferenceChanged(ChangeEventArgs e, int idx)
     {
         var designation = e.Value?.ToString();
-        Cables[idx].Designation = designation;
-        var cableType = CableTypes.FirstOrDefault(t => t.Type == Cables[idx].Type);
-        var reference = cableType?.References.FirstOrDefault(r => r.Designation == designation);
-        Cables[idx].DiameterMm = reference?.DiameterMm ?? 0;
+        _cables[idx].Designation = designation!;
+        var cableType = _cableTypes?.FirstOrDefault(t => t.Type == _cables[idx].Type);
+        var reference = cableType?.References?.FirstOrDefault(r => r.Designation == designation);
+        _cables[idx].DiameterMm = reference?.DiameterMm ?? 0;
     }
 
     private void CalculerEncombrement()
     {
         // (2r)^2 * quantité = (diamètre)^2 * quantité, puis conversion mm² -> cm²
-        Occupancy = Cables
+        _occupancy = _cables
             .Where(c => c.Quantity > 0 && c.DiameterMm > 0)
             .Sum(c => Math.Pow(c.DiameterMm, 2) * c.Quantity) / 100;
     }
