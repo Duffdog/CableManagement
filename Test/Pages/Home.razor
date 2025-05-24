@@ -129,69 +129,120 @@ else
                     <svg viewBox="0 0 @(_svgWidth.ToString("0")) @(_svgHeight.ToString("0"))"
                         style="width:@(_svgWidth.ToString("0"))px; height:@(_svgHeight.ToString("0"))px; border:2px solid #000000; background:#d3e3f2">
                         @{
+                            // Trie les câbles par diamètre décroissant pour un meilleur "packing"
                             var cablesToDraw = _cables
                                 .Where(c => c.Quantity > 0 && c.DiameterMm > 0)
                                 .SelectMany(c => Enumerable.Repeat(c, c.Quantity))
+                                .OrderByDescending(c => c.DiameterMm)
                                 .ToList();
-                            double yMargin = 10;
-                            double xMargin = 10;
-                            double spacingX = 5;
-                            double spacingY = 10;
-                            double posX = xMargin;
+
+                            double yMargin = _selectedTray.Height;
+                            double xMargin = 1;
+                            double spacingX = 1;
+                            double spacingY = 1;
                             double posY = yMargin;
-                            double lineHeight = _maxCableDiameter + spacingY;
                             int couche = 0;
+
+// On prépare les lignes à dessiner
+                            var lignes = new List<List<SelectedCable>>();
+                            var ligne = new List<SelectedCable>();
+                            double largeurLigne = 0;
 
                             foreach (var cable in cablesToDraw)
                             {
-                                if (posX + cable.DiameterMm > _svgWidth - xMargin)
+                                if (largeurLigne + cable.DiameterMm > _svgWidth - 2 * xMargin && ligne.Count > 0)
                                 {
-                                    posX = xMargin;
-                                    posY += lineHeight;
+                                    lignes.Add(ligne);
+                                    ligne = new List<SelectedCable>();
+                                    largeurLigne = 0;
                                     couche++;
+                                    if (couche >= _nombreCouches)
+                                        break;
                                 }
-                                if (couche >= _nombreCouches)
-                                    break;
-                                if (posY + cable.DiameterMm > _svgHeight - yMargin)
-                                    break;
-
-                                <circle cx="@posX"
-                                        cy="@(posY + cable.DiameterMm / 2)"
-                                        r="@(cable.DiameterMm / 2)"
-                                        fill="@GetCableColor(cable.Type)"
-                                        stroke="#000" stroke-width="0.5" />
-                                posX += cable.DiameterMm + spacingX;
+                                ligne.Add(cable);
+                                largeurLigne += cable.DiameterMm + spacingX;
                             }
+                            if (ligne.Count > 0 && couche < _nombreCouches)
+                                lignes.Add(ligne);
+
+// Dessin des lignes centrées
+                            foreach (var l in lignes)
+                            {
+                                double posX = 0; // centrage horizontal
+                                foreach (var cable in l)
+                                {
+                                    posX += cable.DiameterMm / 2;
+                                    <circle cx="@((int)Math.Round(posX))"
+                                            cy="@((int)Math.Round(posY - cable.DiameterMm / 2))"
+                                            r="@((int)Math.Round(cable.DiameterMm / 2))"
+                                            fill="@GetCableColor(cable.Type)"
+                                            stroke="#000" stroke-width="0.5" />
+                                    posX += cable.DiameterMm / 2 + spacingX;
+                                }
+                                posY -= _maxCableDiameter + spacingY;
+                            }
+
                         }
                     </svg>
                  }
                 else if (_conduitType == "fourreau" && _selectedFourreau != null)
                 {
                     <svg viewBox="0 0 @(_svgWidth.ToString("0")) @(_svgHeight.ToString("0"))"
-                         style="width:@(_svgWidth.ToString("0"))px; height:@(_svgHeight.ToString("0"))px; border:2px solid #000000; background:#e6f2d3">
+                         style="width:@(_svgWidth.ToString("0"))px; height:@(_svgHeight.ToString("0"))px; border:2px solid #000000; background:#7c6d66">
                         <circle cx="@(_svgWidth/2)" cy="@(_svgHeight/2)" r="@(_svgWidth/2-2)" fill="#fff" stroke="#000" stroke-width="2"/>
                         @{
                             var cablesToDraw = _cables
                                 .Where(c => c.Quantity > 0 && c.DiameterMm > 0)
                                 .SelectMany(c => Enumerable.Repeat(c, c.Quantity))
+                                .OrderByDescending(c => c.DiameterMm)
                                 .ToList();
-                            // Placement circulaire simple
-                            int n = cablesToDraw.Count;
-                            double R = (_svgWidth / 2) - (_maxCableDiameter / 2) - 4;
+
                             double centerX = _svgWidth / 2;
                             double centerY = _svgHeight / 2;
-                            for (int i = 0; i < n; i++)
+                            double fourreauRadius = _svgWidth / 2 - 4;
+
+// Packing concentrique:
+                            var positions = new List<(double x, double y, double r)>();
+                            if (cablesToDraw.Count > 0)
+                            {
+                                // Premier câble au centre
+                                var first = cablesToDraw[0];
+                                positions.Add((centerX, centerY, first.DiameterMm / 2));
+                                int placed = 1;
+                                double layerRadius = first.DiameterMm / 2 + 2;
+                                while (placed < cablesToDraw.Count)
+                                {
+                                    // Nombre max de câbles sur la couronne
+                                    double rCable = cablesToDraw[placed].DiameterMm / 2;
+                                    double circleRadius = layerRadius + rCable;
+                                    int nOnLayer = (int)Math.Floor(2 * Math.PI * circleRadius / (cablesToDraw[placed].DiameterMm + 2));
+                                    nOnLayer = Math.Min(nOnLayer, cablesToDraw.Count - placed);
+                                    for (int i = 0; i < nOnLayer; i++)
+                                    {
+                                        double angle = 2 * Math.PI * i / nOnLayer;
+                                        double x = centerX + circleRadius * Math.Cos(angle);
+                                        double y = centerY + circleRadius * Math.Sin(angle);
+                                        // Vérifie qu'on reste dans le fourreau
+                                        if (Math.Sqrt(Math.Pow(x - centerX, 2) + Math.Pow(y - centerY, 2)) + rCable <= fourreauRadius)
+                                            positions.Add((x, y, rCable));
+                                    }
+                                    placed += nOnLayer;
+                                    layerRadius += cablesToDraw[placed - 1].DiameterMm + 2;
+                                }
+                            }
+
+// Dessin
+                            for (int i = 0; i < positions.Count && i < cablesToDraw.Count; i++)
                             {
                                 var cable = cablesToDraw[i];
-                                double angle = 2 * Math.PI * i / n;
-                                double cx = centerX + R * Math.Cos(angle);
-                                double cy = centerY + R * Math.Sin(angle);
-                                <circle cx="@cx"
-                                        cy="@cy"
-                                        r="@(cable.DiameterMm / 2)"
+                                var (x, y, r) = positions[i];
+                                <circle cx="@((int)Math.Round(x))"
+                                        cy="@((int)Math.Round(y))"
+                                        r="@((int)Math.Round(r))"
                                         fill="@GetCableColor(cable.Type)"
                                         stroke="#000" stroke-width="0.5" />
                             }
+
                         }
                     </svg>
                 }
