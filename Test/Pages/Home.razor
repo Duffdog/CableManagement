@@ -17,6 +17,32 @@ else
         </select>
     </div>
 
+    <div class="mb-3">
+        <label>Type de ségrégation</label>
+        <select class="form-select" @bind="_segregationType">
+            <option value="Aucune">Aucune</option>
+            <option value="ClasseD">Classe D (10 mm)</option>
+            <option value="ClasseC">Classe C (50 mm)</option>
+            <option value="AvecSeparateur">Avec séparateur métallique</option>
+        </select>
+    </div>
+
+    <!-- Calcul automatique des couches -->
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="autoCouches" @bind="_autoCouches" />
+                <label class="form-check-label" for="autoCouches">
+                    Calcul automatique des couches
+                </label>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label>Nombre de couches</label>
+            <input type="number" class="form-control" min="1" max="9" @bind="_nombreCouchesManuel" disabled="@_autoCouches" />
+        </div>
+    </div>
+
     <button class="btn btn-success mb-3" @onclick="AjouterCable">Ajouter un câble</button>
     <EditForm Model="@this">
         <div class="card">
@@ -25,10 +51,6 @@ else
                     <div class="col-md-3">
                         <label>Réserve souhaitée (%)</label>
                         <input type="number" class="form-control" min="0" max="100" @bind="_reservePercent" />
-                    </div>
-                    <div class="col-md-3">
-                        <label>Nombre de couches</label>
-                        <input type="number" class="form-control" min="1" max="9" @bind="_nombreCouches" />
                     </div>
                 </div>
                 @foreach (var (cable, idx) in _cables.Select((c, i) => (c, i)))
@@ -46,7 +68,14 @@ else
                                 }
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-2">
+                            <label>Catégorie</label>
+                            <select class="form-select" @bind="cable.Category">
+                                <option value="Courant fort">Courant fort</option>
+                                <option value="Courant faible">Courant faible</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
                             <label>Référence</label>
                             <select class="form-select" @onchange="e => OnReferenceChanged(e, idx)" disabled="@string.IsNullOrEmpty(cable.Type)">
                                 <option disabled selected value>-- Référence --</option>
@@ -62,7 +91,7 @@ else
                             <label>Diamètre (mm)</label>
                             <input class="form-control" value="@cable.DiameterMm" readonly />
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-1">
                             <label>Quantité</label>
                             <input type="number" class="form-control" min="1" @bind="cable.Quantity" />
                         </div>
@@ -82,6 +111,12 @@ else
     @if (_occupancy > 0)
     {
         <div class="mt-4">
+            @if (_segregationType == "Aucune" && _cables.Any(c => c.Category == "Courant faible") && _cables.Any(c => c.Category == "Courant fort"))
+            {
+                <div class="alert alert-warning mt-3">
+                    ⚠️ NF C 15-100 : Séparation minimale requise de 50 mm entre courants forts et faibles !
+                </div>
+            }
             <h5>Résultats</h5>
             <p>Encombrement total : <b>@_occupancy.ToString("0.00") cm²</b></p>
             <p>Encombrement avec réserve : <b>@_adjustedOccupancy.ToString("0.00") cm²</b></p>
@@ -120,21 +155,26 @@ else
                     Aucun conduit standard ne convient. Prévoir un conduit sur mesure.
                 </div>
             }
-
-
             <h6>Disposition (vue en coupe)</h6>
             <div style="max-width: 90vw; overflow-x: auto;">
-                 @if (_conduitType == "chemin" && _selectedTray != null)
-                 {
+                @if (_conduitType == "chemin" && _selectedTray != null)
+                {
                     <svg viewBox="0 0 @(_svgWidth.ToString("0")) @(_svgHeight.ToString("0"))"
-                        style="width:@(_svgWidth.ToString("0"))px; height:@(_svgHeight.ToString("0"))px; border:2px solid #000000; background:#d3e3f2">
+                         style="width:@(_svgWidth.ToString("0"))px; height:@(_svgHeight.ToString("0"))px; border:2px solid #000000; background:#d3e3f2">
                         @{
-                            // Trie les câbles par diamètre décroissant pour un meilleur "packing"
-                            var cablesToDraw = _cables
+                            var groups = _cables
                                 .Where(c => c.Quantity > 0 && c.DiameterMm > 0)
                                 .SelectMany(c => Enumerable.Repeat(c, c.Quantity))
                                 .OrderByDescending(c => c.DiameterMm)
+                                .GroupBy(c => c.Category)
                                 .ToList();
+
+                            double separation = _segregationType switch {
+                                "ClasseD" => 10,
+                                "ClasseC" => 50,
+                                "AvecSeparateur" => 5,
+                                _ => 0
+                            };
 
                             double yMargin = _selectedTray.Height;
                             double xMargin = 1;
@@ -143,49 +183,65 @@ else
                             double posY = yMargin;
                             int couche = 0;
 
-// On prépare les lignes à dessiner
                             var lignes = new List<List<SelectedCable>>();
                             var ligne = new List<SelectedCable>();
                             double largeurLigne = 0;
 
-                            foreach (var cable in cablesToDraw)
+                            foreach (var group in groups)
                             {
-                                if (largeurLigne + cable.DiameterMm > _svgWidth - 2 * xMargin && ligne.Count > 0)
+                                foreach (var cable in group)
                                 {
-                                    lignes.Add(ligne);
-                                    ligne = new List<SelectedCable>();
-                                    largeurLigne = 0;
-                                    couche++;
-                                    if (couche >= _nombreCouches)
-                                        break;
+                                    if (largeurLigne + cable.DiameterMm > _svgWidth - 2 * xMargin && ligne.Count > 0)
+                                    {
+                                        lignes.Add(ligne);
+                                        ligne = new List<SelectedCable>();
+                                        largeurLigne = 0;
+                                        couche++;
+                                        if (couche >= _nombreCouchesUtilise)
+                                            break;
+                                    }
+                                    ligne.Add(cable);
+                                    largeurLigne += cable.DiameterMm + spacingX;
                                 }
-                                ligne.Add(cable);
-                                largeurLigne += cable.DiameterMm + spacingX;
+                                if (separation > 0 && group != groups.Last())
+                                {
+                                    ligne.Add(new SelectedCable { DiameterMm = separation, Type = "Séparateur" });
+                                    largeurLigne += separation;
+                                }
                             }
-                            if (ligne.Count > 0 && couche < _nombreCouches)
+                            if (ligne.Count > 0 && couche < _nombreCouchesUtilise)
                                 lignes.Add(ligne);
 
-// Dessin des lignes centrées
                             foreach (var l in lignes)
                             {
-                                double posX = 0; // centrage horizontal
+                                double posX = 0;
                                 foreach (var cable in l)
                                 {
-                                    posX += cable.DiameterMm / 2;
-                                    <circle cx="@((int)Math.Round(posX))"
-                                            cy="@((int)Math.Round(posY - cable.DiameterMm / 2))"
-                                            r="@((int)Math.Round(cable.DiameterMm / 2))"
-                                            fill="@GetCableColor(cable.Type)"
-                                            stroke="#000" stroke-width="0.5" />
-                                    posX += cable.DiameterMm / 2 + spacingX;
+                                    if (cable.Type == "Séparateur")
+                                    {
+                                        <rect x="@((int)Math.Round(posX))" y="0" 
+                                              width="@cable.DiameterMm" height="@_svgHeight"
+                                              fill="#cccccc" stroke="#000"/>
+                                        posX += cable.DiameterMm;
+                                    }
+                                    else
+                                    {
+                                        posX += cable.DiameterMm / 2;
+                                        <circle cx="@((int)Math.Round(posX))"
+                                                cy="@((int)Math.Round(posY - cable.DiameterMm / 2))"
+                                                r="@((int)Math.Round(cable.DiameterMm / 2))"
+                                                fill="@GetCableColor(cable.Type)"
+                                                stroke="#000" stroke-width="0.5" />
+                                        posX += cable.DiameterMm / 2 + spacingX;
+                                    }
                                 }
                                 posY -= _maxCableDiameter + spacingY;
                             }
-
                         }
                     </svg>
-                 }
-                else if (_conduitType == "fourreau" && _selectedFourreau != null)
+                    
+                }
+                 else if (_conduitType == "fourreau" && _selectedFourreau != null)
                 {
                     <svg viewBox="0 0 @(_svgWidth.ToString("0")) @(_svgHeight.ToString("0"))"
                          style="width:@(_svgWidth.ToString("0"))px; height:@(_svgHeight.ToString("0"))px; border:2px solid #000000; background:#7c6d66">
@@ -247,7 +303,6 @@ else
                     </svg>
                 }
             </div>
-
             <div class="mt-2">
                 <small>
                     Largeur Niedax : <b>@_svgWidth mm</b> &nbsp;|&nbsp;
@@ -266,16 +321,29 @@ else
                             <span>@type</span>
                         </div>
                     }
+                    @if (_segregationType != "Aucune")
+                    {
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <svg width="18" height="18">
+                                <rect x="2" y="2" width="14" height="14" fill="#cccccc" stroke="#000" stroke-width="0.5"/>
+                            </svg>
+                            <span>Séparateur</span>
+                        </div>
+                    }
                 </div>
             </div>
-
         </div>
     }
 }
 
 @code {
     private string _conduitType = "chemin";
-    // Modèles pour le JSON
+    private string _segregationType = "Aucune";
+    private bool _autoCouches = true; // Coché par défaut
+
+    private int _nombreCouchesManuel = 1; // Pour la saisie manuelle
+    private int _nombreCouchesUtilise = 1; // Nombre de couches réellement utilisé pour le calcul
+
     public class CableReference
     {
         public string Designation { get; set; } = string.Empty;
@@ -289,6 +357,7 @@ else
     public class SelectedCable
     {
         public string Type { get; set; } = string.Empty;
+        public string Category { get; set; } = "Courant fort";
         public string Designation { get; set; } = string.Empty;
         public double DiameterMm { get; set; }
         public int Quantity { get; set; } = 1;
@@ -297,12 +366,12 @@ else
     {
         public int Width { get; set; }
         public int Height { get; set; }
-        public double SectionUtilisable => (Width * Height * 0.6) / 100.0; // 60% de remplissage max
+        public double SectionUtilisable => (Width * Height * 0.6) / 100.0;
     }
     public class Fourreau
     {
         public double DiametreMm { get; set; }
-        public double SectionUtilisable => Math.PI * Math.Pow(DiametreMm / 2, 2) * 0.4 / 100; // 40% de remplissage max, en cm²
+        public double SectionUtilisable => Math.PI * Math.Pow(DiametreMm / 2, 2) * 0.4 / 100;
     }
     private readonly List<Fourreau> _fourreaux = new()
     {
@@ -318,38 +387,30 @@ else
         new() { DiametreMm = 160 }
     };
     private Fourreau? _selectedFourreau;
-
     private List<CableType>? _cableTypes;
     private List<SelectedCable> _cables = new() { new SelectedCable() };
     private double _occupancy;
     private double _adjustedOccupancy;
-    private int _nombreCouches = 1;
     private double _svgWidth = 100;
     private double _svgHeight = 54;
     private double _maxCableDiameter = 10;
     private double _reservePercent = 20;
     private NiedaxTray? _selectedTray;
 
-    // Palette de couleurs par type de câble (à adapter à tes types réels)
     private readonly Dictionary<string, string> _typeColors = new()
     {
-        { "Instrumentation", "#0dadfd" }, // Bleu
-        { "U-1000 R2V", "#de892f" }, // Orange
-        { "H07 RN-F", "#de892f" }, // Orange
-        { "U-1000 AR2V", "#858383" }, // Gris
-        { "U-1000 RVFV RH", "#de892f" }, // Orange
-        { "Ethernet (RJ45)", "#198754" }, // Vert
-        { "U-1000 AR2V\nmonoconducteurs torsadés\n", "#ffc107" }, // Jaune
-        // Ajoute d'autres types si besoin
+        { "Instrumentation", "#0dadfd" },
+        { "U-1000 R2V", "#de892f" },
+        { "H07 RN-F", "#de892f" },
+        { "U-1000 AR2V", "#858383" },
+        { "U-1000 RVFV RH", "#de892f" },
+        { "Ethernet (RJ45)", "#198754" },
+        { "U-1000 AR2V\nmonoconducteurs torsadés\n", "#ffc107" },
     };
     private string GetCableColor(string type) => _typeColors.TryGetValue(type, out var color) ? color : "#6c757d";
 
-    // Dimensions standards Niedax (extraites du catalogue)
     private readonly List<NiedaxTray> _niedaxTrays = new()
     {
-        //new() { Width = 50, Height = 30 },
-        //new() { Width = 75, Height = 30 },
-        //new() { Width = 100, Height = 30 },
         new() { Width = 50, Height = 54 },
         new() { Width = 100, Height = 54 },
         new() { Width = 150, Height = 54 },
@@ -395,7 +456,23 @@ else
 
     private void CalculerEncombrement()
     {
-        var facteurCouche = _nombreCouches switch
+        // Calcul du nombre de couches utilisé
+        if (_autoCouches)
+        {
+            double largeurDisponible = _selectedTray?.Width - 2 ?? 100;
+            double largeurOccupee = _cables
+                .Where(c => c.Quantity > 0 && c.DiameterMm > 0)
+                .Sum(c => c.DiameterMm * c.Quantity);
+
+            _nombreCouchesUtilise = Math.Clamp((int)Math.Ceiling(largeurOccupee / largeurDisponible), 1, 9);
+            _nombreCouchesManuel = _nombreCouchesUtilise; // Synchronise l'affichage
+        }
+        else
+        {
+            _nombreCouchesUtilise = _nombreCouchesManuel;
+        }
+
+        double facteurCouche = _nombreCouchesUtilise switch
         {
             1 => 1.00,
             2 => 0.80,
@@ -403,12 +480,25 @@ else
             _ => 0.70
         };
 
-        _occupancy = _cables
-                .Where(c => c.Quantity > 0 && c.DiameterMm > 0)
-                .Sum(c => Math.Pow(c.DiameterMm, 2) * c.Quantity)
-            * facteurCouche / 100;
+        var groups = _cables
+            .Where(c => c.Quantity > 0 && c.DiameterMm > 0)
+            .GroupBy(c => c.Category)
+            .ToList();
 
-        _adjustedOccupancy = _occupancy * (1 + _reservePercent / 100.0);
+        double separation = _segregationType switch
+        {
+            "ClasseD" => 10,
+            "ClasseC" => 50,
+            "AvecSeparateur" => 5,
+            _ => 0
+        };
+
+        _occupancy = groups.Sum(g =>
+            g.Sum(c => Math.Pow(c.DiameterMm, 2) * c.Quantity)
+        ) * facteurCouche / 100;
+
+        _adjustedOccupancy = _occupancy * (1 + _reservePercent / 100.0)
+            + ((groups.Count - 1) * separation * _maxCableDiameter / 100.0);
 
         if (_conduitType == "chemin")
         {
@@ -442,5 +532,4 @@ else
         _maxCableDiameter = _cables.Where(c => c.Quantity > 0 && c.DiameterMm > 0)
             .Select(c => c.DiameterMm).DefaultIfEmpty(10).Max();
     }
-
 }
